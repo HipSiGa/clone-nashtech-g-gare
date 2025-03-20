@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.yas.commonlibrary.exception.DuplicatedException;
+import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.location.LocationApplication;
-import com.yas.location.exception.DuplicatedException;
-import com.yas.location.exception.NotFoundException;
 import com.yas.location.model.Country;
 import com.yas.location.repository.CountryRepository;
 
@@ -135,6 +135,19 @@ public class CountryServiceTest {
         DuplicatedException exception =
             assertThrows(DuplicatedException.class, () -> countryService.update(countryPostVm, country1Id));
         assertEquals(String.format("Request name %s is already existed", "country-2"), exception.getMessage());
+    }
+
+    @Test
+    void updateCountry_WithCodeExisted_ThrowsCodeAlreadyExistedException() {
+        generateTestData();
+        CountryPostVm countryPostVm = CountryPostVm.builder()
+            .code2("tW")
+            .name("country-1")
+            .build();
+        Long country1Id = country1.getId();
+        DuplicatedException exception =
+            assertThrows(DuplicatedException.class, () -> countryService.update(countryPostVm, country1Id));
+        assertEquals(String.format("The code %s is already existed", "tW"), exception.getMessage());
     }
 
     @Test

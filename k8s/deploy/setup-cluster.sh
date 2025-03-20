@@ -1,6 +1,28 @@
 #!/bin/bash
 set -x
 
+# Check and install yq if not present
+if ! command -v yq &> /dev/null; then
+    echo "yq not found, installing..."
+    # For Linux
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+        sudo chmod +x /usr/local/bin/yq
+    # For macOS
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install yq
+    else
+        echo "Unsupported OS. Please install yq manually: https://github.com/mikefarah/yq"
+        exit 1
+    fi
+fi
+
+# Verify yq installation
+if ! command -v yq &> /dev/null; then
+    echo "yq installation failed. Please install it manually."
+    exit 1
+fi
+
 # Add chart repos and update
 helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
 helm repo add strimzi https://strimzi.io/charts/
@@ -14,12 +36,16 @@ helm repo update
 
 #Read configuration value from cluster-config.yaml file
 read -rd '' DOMAIN POSTGRESQL_REPLICAS POSTGRESQL_USERNAME POSTGRESQL_PASSWORD \
-KAFKA_REPLICAS ZOOKEEPER_REPLICAS ELASTICSEARCH_REPLICAES KEYCLOAK_BACKOFFICE_REDIRECT_URL KEYCLOAK_STOREFRONT_REDIRECT_URL \
+KAFKA_REPLICAS ZOOKEEPER_REPLICAS ELASTICSEARCH_REPLICAES \
 GRAFANA_USERNAME GRAFANA_PASSWORD \
 < <(yq -r '.domain, .postgresql.replicas, .postgresql.username,
  .postgresql.password, .kafka.replicas, .zookeeper.replicas,
- .elasticsearch.replicas, .keycloak.backofficeRedirectUrl,
- .keycloak.storefrontRedirectUrl, .grafana.username, .grafana.password' ./cluster-config.yaml)
+ .elasticsearch.replicas, .grafana.username, .grafana.password' ./cluster-config.yaml)
+
+# Add these lines to display the values
+echo "POSTGRESQL_REPLICAS -----: $POSTGRESQL_REPLICAS"
+echo "POSTGRESQL_USERNAME -----: $POSTGRESQL_USERNAME"
+echo "POSTGRESQL_PASSWORD -----: $POSTGRESQL_PASSWORD"
 
 # Install the postgres-operator
 helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator \
@@ -65,22 +91,7 @@ helm upgrade --install elasticsearch-cluster ./elasticsearch/elasticsearch-clust
 --set elasticsearch.replicas="$ELASTICSEARCH_REPLICAES" \
 --set kibana.ingress.hostname="kibana.$DOMAIN"
 
-#Install CRD keycloak
-kubectl create namespace keycloak
-kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/21.1.2/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
-kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/21.1.2/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
-kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/21.1.2/kubernetes/kubernetes.yml -n keycloak
-
-# Install keycloak
-helm upgrade --install keycloak ./keycloak/keycloak \
---namespace keycloak \
---set postgresql.username="$POSTGRESQL_USERNAME" \
---set postgresql.password="$POSTGRESQL_PASSWORD" \
---set hostname="identity.$DOMAIN" \
---set backofficeRedirectUrl="$KEYCLOAK_BACKOFFICE_REDIRECT_URL" \
---set storefrontRedirectUrl="$KEYCLOAK_STOREFRONT_REDIRECT_URL"
-
-#Install loki
+#Install loki with proper configuration
 helm upgrade --install loki grafana/loki \
  --create-namespace --namespace observability \
  -f ./observability/loki.values.yaml
@@ -101,8 +112,12 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --set admissionWebhooks.certManager.create=true
 
 #Install opentelemetry-operator
+# helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
+# --create-namespace --namespace observability
+# this is fix
 helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
---create-namespace --namespace observability
+  --create-namespace --namespace observability \
+  -f ./observability/opentelemetry/operator-values.yaml
 
 #Install opentelemetry-collector
 helm upgrade --install opentelemetry-collector ./observability/opentelemetry \
@@ -113,10 +128,14 @@ helm upgrade --install promtail grafana/promtail \
 --create-namespace --namespace observability \
 --values ./observability/promtail.values.yaml
 
+# Create the Grafana database password secret
+kubectl apply -f ./observability/grafana/grafana-db-secret.yaml
+
 #Install prometheus + grafana
 grafana_hostname="grafana.$DOMAIN" yq -i '.hostname=env(grafana_hostname)' ./observability/prometheus.values.yaml
 postgresql_username="$POSTGRESQL_USERNAME" yq -i '.grafana."grafana.ini".database.user=env(postgresql_username)' ./observability/prometheus.values.yaml
-postgresql_password="$POSTGRESQL_PASSWORD" yq -i '.grafana."grafana.ini".database.password=env(postgresql_password)' ./observability/prometheus.values.yaml
+# postgresql_password="$POSTGRESQL_PASSWORD" yq -i '.grafana."grafana.ini".database.password=env(postgresql_password)' ./observability/prometheus.values.yaml
+
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
  --create-namespace --namespace observability \
 -f ./observability/prometheus.values.yaml \

@@ -1,11 +1,13 @@
 package com.yas.webhook.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.webhook.config.constants.MessageCode;
-import com.yas.webhook.config.exception.NotFoundException;
 import com.yas.webhook.integration.api.WebhookApi;
 import com.yas.webhook.model.Webhook;
 import com.yas.webhook.model.WebhookEvent;
+import com.yas.webhook.model.WebhookEventNotification;
+import com.yas.webhook.model.dto.WebhookEventNotificationDto;
+import com.yas.webhook.model.enums.NotificationStatus;
 import com.yas.webhook.model.mapper.WebhookMapper;
 import com.yas.webhook.model.viewmodel.webhook.EventVm;
 import com.yas.webhook.model.viewmodel.webhook.WebhookDetailVm;
@@ -13,6 +15,7 @@ import com.yas.webhook.model.viewmodel.webhook.WebhookListGetVm;
 import com.yas.webhook.model.viewmodel.webhook.WebhookPostVm;
 import com.yas.webhook.model.viewmodel.webhook.WebhookVm;
 import com.yas.webhook.repository.EventRepository;
+import com.yas.webhook.repository.WebhookEventNotificationRepository;
 import com.yas.webhook.repository.WebhookEventRepository;
 import com.yas.webhook.repository.WebhookRepository;
 import java.util.List;
@@ -26,13 +29,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class WebhookService {
 
     private final WebhookRepository webhookRepository;
     private final EventRepository eventRepository;
     private final WebhookEventRepository webhookEventRepository;
+    private final WebhookEventNotificationRepository webhookEventNotificationRepository;
     private final WebhookMapper webhookMapper;
     private final WebhookApi webHookApi;
 
@@ -49,7 +52,7 @@ public class WebhookService {
 
     public WebhookDetailVm findById(Long id) {
         return webhookMapper.toWebhookDetailVm(webhookRepository.findById(id).orElseThrow(
-                () -> new NotFoundException(MessageCode.WEBHOOK_NOT_FOUND, id)));
+            () -> new NotFoundException(MessageCode.WEBHOOK_NOT_FOUND, id)));
     }
 
     public WebhookDetailVm create(WebhookPostVm webhookPostVm) {
@@ -57,7 +60,7 @@ public class WebhookService {
         createdWebhook = webhookRepository.save(createdWebhook);
         if (!CollectionUtils.isEmpty(webhookPostVm.getEvents())) {
             List<WebhookEvent> webhookEvents
-                    = initializeWebhookEvents(createdWebhook.getId(), webhookPostVm.getEvents());
+                = initializeWebhookEvents(createdWebhook.getId(), webhookPostVm.getEvents());
             webhookEvents = webhookEventRepository.saveAll(webhookEvents);
             createdWebhook.setWebhookEvents(webhookEvents);
         }
@@ -66,7 +69,7 @@ public class WebhookService {
 
     public void update(WebhookPostVm webhookPostVm, Long id) {
         Webhook existedWebHook = webhookRepository.findById(id).orElseThrow(
-                () -> new NotFoundException(MessageCode.WEBHOOK_NOT_FOUND, id));
+            () -> new NotFoundException(MessageCode.WEBHOOK_NOT_FOUND, id));
         Webhook updatedWebhook = webhookMapper.toUpdatedWebhook(existedWebHook, webhookPostVm);
         webhookRepository.save(updatedWebhook);
         webhookEventRepository.deleteAll(existedWebHook.getWebhookEvents().stream().toList());
@@ -76,6 +79,7 @@ public class WebhookService {
         }
     }
 
+    @Transactional
     public void delete(Long id) {
         if (!webhookRepository.existsById(id)) {
             throw new NotFoundException(MessageCode.WEBHOOK_NOT_FOUND, id);
@@ -85,8 +89,14 @@ public class WebhookService {
     }
 
     @Async
-    public void notifyToWebhook(String url, String secret, JsonNode payload) {
-        webHookApi.notify(url, secret, payload);
+    public void notifyToWebhook(WebhookEventNotificationDto notificationDto) {
+
+        webHookApi.notify(notificationDto.getUrl(), notificationDto.getSecret(), notificationDto.getPayload());
+        WebhookEventNotification notification = webhookEventNotificationRepository.findById(
+                notificationDto.getNotificationId())
+            .orElseThrow();
+        notification.setNotificationStatus(NotificationStatus.NOTIFIED);
+        webhookEventNotificationRepository.save(notification);
     }
 
     private List<WebhookEvent> initializeWebhookEvents(Long webhookId, List<EventVm> events) {
@@ -95,7 +105,7 @@ public class WebhookService {
             webhookEvent.setWebhookId(webhookId);
             long eventId = hookEventVm.getId();
             eventRepository.findById(eventId)
-                    .orElseThrow(() -> new NotFoundException(MessageCode.EVENT_NOT_FOUND, eventId));
+                .orElseThrow(() -> new NotFoundException(MessageCode.EVENT_NOT_FOUND, eventId));
             webhookEvent.setEventId(eventId);
             return webhookEvent;
         }).toList();
