@@ -1,0 +1,24 @@
+ ailable. (org.apache.kafka.clients.NetworkClient) [kafka-admin-client-thread | adminclient-1]                                                                                              │
+│ 2025-03-15 15:55:02,223 INFO App info kafka.admin.client for adminclient-1 unregistered (org.apache.kafka.common.utils.AppInfoParser) [kafka-admin-client-thread | adminclient-1]          │
+│ 2025-03-15 15:55:02,223 INFO [AdminClient clientId=adminclient-1] Metadata update failed (org.apache.kafka.clients.admin.internals.AdminMetadataManager) [kafka-admin-client-thread | admi │
+│ nclient-1]                                                                                                                                                                                 │
+│ org.apache.kafka.common.errors.TimeoutException: The AdminClient thread has exited. Call: fetchMetadata                                                                                    │
+│ 2025-03-15 15:55:02,224 INFO [AdminClient clientId=adminclient-1] Timed out 1 remaining operation(s) during close. (org.apache.kafka.clients.admin.KafkaAdminClient) [kafka-admin-client-t │
+│ hread | adminclient-1]                                                                                                                                                                     │
+│ 2025-03-15 15:55:02,228 INFO Metrics scheduler closed (org.apache.kafka.common.metrics.Metrics) [kafka-admin-client-thread | adminclient-1]                                                │
+│ 2025-03-15 15:55:02,228 INFO Closing reporter org.apache.kafka.common.metrics.JmxReporter (org.apache.kafka.common.metrics.Metrics) [kafka-admin-client-thread | adminclient-1]            │
+│ 2025-03-15 15:55:02,228 INFO Metrics reporters closed (org.apache.kafka.common.metrics.Metrics) [kafka-admin-client-thread | adminclient-1]                                                │
+│ 2025-03-15 15:55:02,228 ERROR Stopping due to error (org.apache.kafka.connect.cli.ConnectDistributed) [main]                                                                               │
+│ org.apache.kafka.connect.errors.ConnectException: Failed to connect to and describe Kafka cluster. Check worker's broker connection and security properties.                               │
+│     at org.apache.kafka.connect.runtime.WorkerConfig.lookupKafkaClusterId(WorkerConfig.java:347)                                                                                           │
+│     at org.apache.kafka.connect.runtime.WorkerConfig.lookupKafkaClusterId(WorkerConfig.java:327)                                                                                           │
+│     at org.apache.kafka.connect.runtime.WorkerConfig.kafkaClusterId(WorkerConfig.java:457)                                                                                                 │
+│     at org.apache.kafka.connect.cli.ConnectDistributed.startConnect(ConnectDistributed.java:100)                                                                                           │
+│     at org.apache.kafka.connect.cli.ConnectDistributed.main(ConnectDistributed.java:83)                                                                                                    │
+│ Caused by: java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TimeoutException: Timed out waiting for a node assignment. Call: listNodes                              │
+│     at java.base/java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:396)                                                                                              │
+│     at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2073)                                                                                                   │
+│     at org.apache.kafka.common.internals.KafkaFutureImpl.get(KafkaFutureImpl.java:165)                                                                                                     │
+│     at org.apache.kafka.connect.runtime.WorkerConfig.lookupKafkaClusterId(WorkerConfig.java:341)                                                                                           │
+│     ... 4 more                                                                                                                                                                             │
+│ Caused by: org.apache.kafka.common.errors.TimeoutException: Timed out waiting for a node assignment. Call: listNodes                        

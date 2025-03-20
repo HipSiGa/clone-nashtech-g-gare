@@ -6,13 +6,11 @@ opentelemetryCollectorConfig:
           endpoint: 0.0.0.0:4317
         http:
           endpoint: 0.0.0.0:4318
-    loki:
-      protocols:
-        http:
-          endpoint: 0.0.0.0:3500
-      use_incoming_timestamp: true
+    filelog:
+      include: [/var/log/pods/*.log]
+
   processors:
-    batch:
+    batch: {}
     attributes:
       actions:
         - action: insert
@@ -23,19 +21,22 @@ opentelemetryCollectorConfig:
           value: raw
 
   exporters:
-    logging:
+    debug:
       verbosity: detailed
-    loki:
-      endpoint: http://loki-gateway/loki/api/v1/push
     otlphttp:
+      endpoint: http://loki-gateway/loki/api/v1/push
+      headers:
+        Content-Type: application/json
+    otlphttp/tempo:
       endpoint: http://tempo:4318
+
   service:
     pipelines:
       logs:
-        receivers: [loki]
-        processors: [attributes]
-        exporters: [loki]
+        receivers: [filelog]
+        processors: [attributes, batch]
+        exporters: [otlphttp]
       traces:
         receivers: [otlp]
         processors: [batch]
-        exporters: [otlphttp]
+        exporters: [otlphttp/tempo]

@@ -1,5 +1,10 @@
 package com.yas.product.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
 import com.yas.product.ProductApplication;
 import com.yas.product.model.Category;
 import com.yas.product.repository.CategoryRepository;
@@ -15,12 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.when;
-
 @SpringBootTest(classes = ProductApplication.class)
-public class CategoryServiceTest {
+class CategoryServiceTest {
     @Autowired
     private CategoryRepository categoryRepository;
     @Autowired
@@ -65,9 +66,17 @@ public class CategoryServiceTest {
 
     @Test
     void getCategories_Success() {
+        when(mediaService.getMedia(any())).thenReturn(noFileMediaVm);
+        Assertions.assertEquals(1, categoryService.getCategories("name").size());
+        CategoryGetVm categoryGetVm = categoryService.getCategories("name").getFirst();
+        assertEquals("name", categoryGetVm.name());
+    }
+
+    @Test
+    void getCategoriesPageable_Success() {
         when(mediaService.getMedia(category.getImageId())).thenReturn(noFileMediaVm);
-        Assertions.assertEquals(1, categoryService.getCategories().size());
-        CategoryGetVm categoryGetVm = categoryService.getCategories().get(0);
+        Assertions.assertEquals(1, categoryService.getPageableCategories(0, 1).categoryContent().size());
+        CategoryGetVm categoryGetVm = categoryService.getCategories("a").getFirst();
         assertEquals("name", categoryGetVm.name());
     }
 }

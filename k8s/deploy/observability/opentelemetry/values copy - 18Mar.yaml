@@ -1,0 +1,42 @@
+opentelemetryCollectorConfig:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    filelog:
+      include: [/var/log/pods/*.log]  # ✅ Adjusted for Kubernetes logs
+
+  processors:
+    batch: {}
+    attributes:
+      actions:
+        - action: insert
+          key: loki.attribute.labels
+          value: namespace,container,pod,level,traceId
+        - action: insert
+          key: loki.format
+          value: raw
+
+  exporters:
+    debug:
+      verbosity: detailed
+    loki_otlphttp:
+      endpoint: http://loki-gateway/loki/api/v1/push
+      headers:
+        Content-Type: application/json
+    tempo_otlphttp:
+      endpoint: http://tempo:4318
+
+  service:
+    pipelines:
+      logs:
+        receivers: [filelog]
+        processors: [attributes, batch]
+        exporters: [loki_otlphttp]  # Changed from otlphttp_logs
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [tempo_otlphttp]  # Changed from otlphttp_traces

@@ -1,0 +1,162 @@
+This line specifies that the script should be run using the Bash shell.
+
+### cli
+set -x
+###
+This enables a mode of the shell where all executed commands are printed to the terminal. This is useful for debugging.
+
+----
+
+# Add chart repos and update
+
+This is a comment indicating that the following lines will add Helm chart repositories and update them.
+
+### cli
+helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
+helm repo add strimzi https://strimzi.io/charts/
+helm repo add akhq https://akhq.io/
+helm repo add elastic https://helm.elastic.co
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add jetstack https://charts.jetstack.io
+###
+These lines add various Helm chart repositories to your local Helm client. Helm is a package manager for Kubernetes.
+
+### cli
+helm repo update
+###
+
+This updates the local Helm chart repository cache with the latest charts from the added repositories.
+#Read configuration value from cluster-config.yaml file
+
+### cli
+read -rd '' DOMAIN POSTGRESQL_REPLICAS POSTGRESQL_USERNAME POSTGRESQL_PASSWORD \
+KAFKA_REPLICAS ZOOKEEPER_REPLICAS ELASTICSEARCH_REPLICAES \
+GRAFANA_USERNAME GRAFANA_PASSWORD \
+< <(yq -r '.domain, .postgresql.replicas, .postgresql.username,
+ .postgresql.password, .kafka.replicas, .zookeeper.replicas,
+ .elasticsearch.replicas, .grafana.username, .grafana.password' ./cluster-config.yaml)
+###
+
+This line uses yq (a YAML processor) to read specific values from cluster-config.yaml and assigns them to shell variables.
+# Install the postgres-operator
+
+This comment indicates that the following lines will install the Postgres operator.
+
+###
+helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator \
+ --create-namespace --namespace postgres
+###
+
+This installs or upgrades the Postgres operator using Helm, creating the namespace postgres if it doesn't exist.
+#Install postgresql
+
+This comment indicates that the following lines will install PostgreSQL.
+
+###
+helm upgrade --install postgres ./postgres/postgresql \
+--create-namespace --namespace postgres \
+--set replicas="$POSTGRESQL_REPLICAS" \
+--set username="$POSTGRESQL_USERNAME" \
+--set password="$POSTGRESQL_PASSWORD"
+###
+
+This installs or upgrades PostgreSQL using Helm, setting the number of replicas, username, and password from the variables.
+#Install pgadmin
+
+This comment indicates that the following lines will install pgAdmin.
+###
+pg_admin_hostname="pgadmin.$DOMAIN" yq -i '.hostname=env(pg_admin_hostname)' ./postgres/pgadmin/values.yaml
+###
+This sets the hostname for pgAdmin in its values file using yq.
+
+###
+helm upgrade --install pgadmin ./postgres/pgadmin \
+--create-namespace --namespace postgres
+###
+
+This installs or upgrades pgAdmin using Helm.
+
+#Install strimzi-kafka-operator
+This comment indicates that the following lines will install the Strimzi Kafka operator.
+###
+helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
+--create-namespace --namespace kafka
+###
+
+This installs or upgrades the Strimzi Kafka operator using Helm.
+###
+helm upgrade --install kafka-cluster ./kafka/kafka-cluster \
+--create-namespace --namespace kafka \
+--set kafka.replicas="$KAFKA_REPLICAS" \
+--set zookeeper.replicas="$ZOOKEEPER_REPLICAS" \
+--set postgresql.username="$POSTGRESQL_USERNAME" \
+--set postgresql.password="$POSTGRESQL_PASSWORD"
+###
+This installs or upgrades the Kafka cluster using Helm, setting the number of Kafka and Zookeeper replicas, and PostgreSQL credentials.
+
+###
+akhq_hostname="akhq.$DOMAIN" yq -i '.hostname=env(akhq_hostname)' ./kafka/akhq.values.yaml
+###
+This sets the hostname for AKHQ in its values file using yq.
+
+###
+helm upgrade --install akhq akhq/akhq \
+--create-namespace --namespace kafka \
+--values ./kafka/akhq.values.yaml
+###
+This installs or upgrades AKHQ using Helm.
+
+###
+helm upgrade --install elastic-operator elastic/eck-operator \
+ --create-namespace --namespace elasticsearch
+###
+This installs or upgrades the Elastic operator using Helm.
+
+This comment indicates that the following lines will install the Elasticsearch cluster.
+
+This installs or upgrades the Elasticsearch cluster using Helm, setting the number of replicas and the Kibana hostname.
+
+This comment indicates that the following lines will install Loki.
+
+This installs or upgrades Loki using Helm, with values from the specified file.
+
+This comment indicates that the following lines will install Tempo.
+
+This installs or upgrades Tempo using Helm, with values from the specified file.
+
+This comment indicates that the following lines will install Cert Manager.
+
+This installs or upgrades Cert Manager using Helm, with specific settings.
+
+This comment indicates that the following lines will install the OpenTelemetry operator.
+
+This installs or upgrades the OpenTelemetry operator using Helm.
+
+This comment indicates that the following lines will install the OpenTelemetry collector.
+
+This installs or upgrades the OpenTelemetry collector using Helm.
+
+This comment indicates that the following lines will install Promtail.
+
+This installs or upgrades Promtail using Helm, with values from the specified file.
+
+This comment indicates that the following lines will install Prometheus and Grafana.
+
+These lines set the hostname and PostgreSQL credentials for Grafana in the Prometheus values file using yq.
+
+This installs or upgrades Prometheus using Helm, with values from the specified file.
+
+This comment indicates that the following lines will install the Grafana operator.
+
+This installs or upgrades the Grafana operator using Helm.
+
+This comment indicates that the following lines will add a datasource and dashboard to Grafana.
+
+This installs or upgrades Grafana using Helm, setting the hostname, Grafana credentials, and PostgreSQL credentials.
+
+This installs or upgrades Zookeeper using Helm.
+
+This script automates the setup of a Kubernetes cluster with various components like PostgreSQL, Kafka, Elasticsearch, Grafana, and more, using Helm charts.
+
